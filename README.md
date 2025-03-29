@@ -106,3 +106,7 @@ Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an 
 -   `-c <cover_art>`: Path to cover art image (jpg/png, optional).
 -   `-b <bitrate>`: AAC audio bitrate (e.g., `96k`, `128k`, defaults to `128k`, optional).
 -   `-n`: Optional Dry run flag. Performs steps up to generating temp files and shows the final `ffmpeg` command without executing it.
+
+## Tips
+
+-   Sometimes, when you first insert an audio CD on macOS, the mounted volume name might be generic (like "Audio CD" or "Disc Drive"). It's been observed that **opening the macOS Music app** after inserting the disc can trigger the system to recognize the actual disc title (e.g., "My Audiobook Title") as the volume name. The Music app may also fetch track names from an online database (like Gracenote). Waiting for this to happen before running `copy-rename-cd.sh` can be helpful, as it gives you the correct volume name to use for the `-s` argument and provides the actual track names as a reference in case the automatic renaming based on numbers needs adjustment later.
