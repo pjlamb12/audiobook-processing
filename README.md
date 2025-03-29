@@ -67,11 +67,11 @@ Run this script _while inside_ the directory containing the `.aiff` files you wa
 
 ---
 
-## `create-m4b.sh`
+## `create_m4b.sh`
 
 ### Purpose
 
-Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an input directory into a single `.m4b` audiobook file, complete with chapter markers, metadata, and optional cover art.
+Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an input directory into a single `.m4b` audiobook file, complete with chapter markers, metadata (including optional Series/Sequence info), and optional cover art.
 
 ### Dependencies
 
@@ -88,7 +88,7 @@ Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an 
     -   Concatenate the audio from the input files.
     -   Encode the combined audio to AAC format using a specified bitrate.
     -   Inject the chapter metadata.
-    -   Optionally add title, author/artist metadata.
+    -   Optionally add title, author, **series name, and series sequence number** metadata.
     -   Optionally embed cover art.
     -   Package everything into an MP4 container, saved with the `.m4b` extension.
 7.  Removes temporary files.
@@ -96,7 +96,7 @@ Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an 
 ### Usage
 
 ```bash
-./create_m4b.sh -i <input_dir> -o <output_m4b> [-t <title>] [-a <author>] [-c <cover_art.jpg>] [-b <bitrate>] [-n]
+./create_m4b.sh -i <input_dir> -o <output_m4b> [-t <title>] [-a <author>] [-c <cover_art.jpg>] [-b <bitrate>] [-S <series_name>] [-E <sequence_num>] [-n]
 ```
 
 -   `-i <input_dir>`: Directory containing the sorted AIFF chapter files (required).
@@ -105,7 +105,11 @@ Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an 
 -   `-a <author>`: Audiobook author/artist metadata (optional).
 -   `-c <cover_art>`: Path to cover art image (jpg/png, optional).
 -   `-b <bitrate>`: AAC audio bitrate (e.g., `96k`, `128k`, defaults to `128k`, optional).
+-   `-S <series_name>`: Series Name metadata (optional, uses 'show' tag).
+-   `-E <sequence_num>`: Sequence number within series (optional, uses 'episode_id' and 'track' tags).
 -   `-n`: Optional Dry run flag. Performs steps up to generating temp files and shows the final `ffmpeg` command without executing it.
+
+---
 
 ## Tips
 
