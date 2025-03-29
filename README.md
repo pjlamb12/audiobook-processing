@@ -111,6 +111,44 @@ Combines a sequence of sorted audio files (presumably `.aiff` chapters) from an 
 
 ---
 
+## `add-aiff-extension.sh`
+
+### Purpose
+
+Checks files within the **current directory** and appends the `.aiff` extension to any file that does not already have it (case-insensitive check). This is useful for fixing batches of audio files that may have lost their extension.
+
+**Important Warning:** This script _assumes_ that any file lacking the `.aiff` extension _should_ be an AIFF file. It **does not** analyze the file content; it only looks at the filename. Running this on a directory containing non-AIFF files without extensions (e.g., text files, other audio formats) will incorrectly add `.aiff` to their names.
+
+### Workflow
+
+1.  Scans non-hidden files directly within the current directory (it does not go into subdirectories).
+2.  Checks if the filename ends with `.aiff` (case-insensitive).
+3.  If the extension is missing:
+    -   Constructs the new filename by appending `.aiff`.
+    -   Checks if a file with the new name _already exists_. If it does, the original file is skipped to prevent overwriting.
+    -   If the new name is safe, renames the original file.
+
+### Usage
+
+Run this script _while inside_ the directory containing the files you want to check and potentially rename.
+
+```bash
+# Make sure you are in the correct directory first!
+cd /path/to/your/audio/files
+
+# Run in dry-run mode first (recommended)
+./add-aiff-extension.sh -n
+# or
+./add-aiff-extension.sh --dry-run
+
+# If dry run looks correct, run for real
+./add-aiff-extension.sh
+```
+
+-   `-n` or `--dry-run`: Optional. Shows which files would be renamed without actually changing any files. **Highly recommended** to run this first.
+
+---
+
 ## Tips
 
 -   Sometimes, when you first insert an audio CD on macOS, the mounted volume name might be generic (like "Audio CD" or "Disc Drive"). It's been observed that **opening the macOS Music app** after inserting the disc can trigger the system to recognize the actual disc title (e.g., "My Audiobook Title") as the volume name. The Music app may also fetch track names from an online database (like Gracenote). Waiting for this to happen before running `copy-rename-cd.sh` can be helpful, as it gives you the correct volume name to use for the `-s` argument and provides the actual track names as a reference in case the automatic renaming based on numbers needs adjustment later.
