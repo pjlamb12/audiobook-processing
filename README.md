@@ -39,11 +39,11 @@ Copies audio files (e.g., `.aiff`) from a source directory (like a CD volume) in
 
 ---
 
-## `rename-aiffs.sh`
+## `rename-aiffs.sh` and `rename-mp3s.sh`
 
 ### Purpose
 
-Renames existing `.aiff` files within the **current directory**. It identifies files starting with numbers, sorts them naturally, and renames them sequentially starting from a specified number, applying 3-digit zero-padding.
+Renames existing `.aiff` or `.mp3` files within the **current directory**. It identifies files starting with numbers, sorts them naturally, and renames them sequentially starting from a specified number, applying 3-digit zero-padding.
 
 ### Workflow
 
