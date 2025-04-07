@@ -1,18 +1,19 @@
 #!/bin/bash
 
 # --- Script to Copy AIFF files from a source (e.g., CD Volume), ---
-# --- rename them with 3-digit padding in a temporary location,  ---
+# --- sanitize and rename them with 3-digit padding in a temporary location, ---
 # --- then move to final destination folder.                     ---
-# --- FIX: Ensures .aiff extension is preserved during rename.   ---
 
 # --- Configuration ---
-RENAME_PATTERN="*.aiff" # Pattern of files to rename
-# Regex captures number, space, then the main text part *before* .aiff
-REGEX_CAPTURE_TEXT_PART='^[0-9]+[[:space:]]+(.*)\.aiff$'
-# Delimiter to use in the *new* filename between the number and the rest
-NEW_DELIMITER=" "
-# The extension we expect and want to add back
+# This script is currently hardcoded for AIFF files due to the regex
+# To adapt for other types, change RENAME_PATTERN, EXPECTED_EXTENSION,
+# and potentially REGEX_CAPTURE_TEXT_PART.
+RENAME_PATTERN="*.aiff"
 EXPECTED_EXTENSION=".aiff"
+# Regex captures number, space, then the main text part *before* the extension
+REGEX_CAPTURE_TEXT_PART="^[0-9]+[[:space:]]+(.*)${EXPECTED_EXTENSION//./\\.}$" # Escape dot in extension
+# Delimiter to use in the *new* filename between the number and the rest
+NEW_DELIMITER="-" # Using hyphen as delimiter now
 
 # --- Function Definitions ---
 usage() {
@@ -42,6 +43,7 @@ start_num=""
 dry_run=false
 
 while getopts "hs:d:n:N" opt; do
+  # ... (argument parsing remains the same) ...
   case $opt in
     h) usage ;;
     s) source_dir="$OPTARG" ;;
@@ -54,23 +56,18 @@ while getopts "hs:d:n:N" opt; do
 done
 
 # --- Validate Inputs ---
-if [[ -z "$source_dir" ]] || [[ -z "$dest_dir" ]] || [[ -z "$start_num" ]]; then
-  echo "Error: Source directory (-s), destination directory (-d), and starting number (-n) are required."
-  usage
-fi
-# ... (rest of validations: source exists, start num is int, dependencies) ...
+# ... (validations remain the same) ...
+if [[ -z "$source_dir" ]] || [[ -z "$dest_dir" ]] || [[ -z "$start_num" ]]; then echo "Error: Source directory (-s), destination directory (-d), and starting number (-n) are required."; usage; fi
 if [[ ! -d "$source_dir" ]]; then echo "Error: Source directory '$source_dir' not found."; exit 1; fi
 if ! [[ "$start_num" =~ ^[0-9]+$ ]]; then echo "Error: Starting number (-n) must be an integer."; exit 1; fi
 # ...
 
 # --- Expand Tilde (~) in Destination Path ---
 expanded_dest_dir="$dest_dir"
-if [[ "${dest_dir:0:1}" == "~" ]]; then
-    expanded_dest_dir="$HOME${dest_dir:1}"
-    echo "Info: Expanded destination path '~' to '$HOME'."
-fi
+if [[ "${dest_dir:0:1}" == "~" ]]; then expanded_dest_dir="$HOME${dest_dir:1}"; echo "Info: Expanded destination path '~' to '$HOME'."; fi
 
 # --- Prepare Final Destination and Temporary Directory ---
+# ... (directory preparation remains the same) ...
 if $dry_run; then
     echo "DRY RUN: Would ensure final destination directory exists: '$expanded_dest_dir'"
     dest_base_dir=$(dirname "$expanded_dest_dir")
@@ -79,7 +76,6 @@ else
     echo "Ensuring final destination directory exists: '$expanded_dest_dir'"
     mkdir -p "$expanded_dest_dir" || { echo "Error: Could not create final destination directory '$expanded_dest_dir'."; exit 1; }
 fi
-
 temp_dir=$(mktemp -d "${expanded_dest_dir}/temp_copy_rename_XXXXXX")
 if [[ $? -ne 0 ]] || [[ -z "$temp_dir" ]]; then echo "Error: Failed to create temporary directory in '$expanded_dest_dir'."; exit 1; fi
 echo "Created temporary directory: $temp_dir"
@@ -87,6 +83,7 @@ trap cleanup EXIT SIGINT SIGTERM
 echo "-------------------------------------"
 
 # --- Step 1: Copy Files (Source -> Temp) ---
+# ... (copy step remains the same) ...
 echo "Step 1: Copying files from '$source_dir' to temporary directory '$temp_dir'..."
 rsync_cmd_copy=(rsync -avh --progress)
 if $dry_run; then rsync_cmd_copy+=(-n); echo "DRY RUN: Simulating file copy to temp directory..."; fi
@@ -97,65 +94,101 @@ if [[ $rsync_exit_code -ne 0 ]]; then echo "Error: rsync copy process failed wit
 if $dry_run; then echo "DRY RUN: File copy simulation to temp complete."; else echo "File copy to temp complete."; fi
 echo "-------------------------------------"
 
-# --- Step 2: Rename AIFF Files (Inside Temp) ---
-echo "Step 2: Renaming '$RENAME_PATTERN' files inside temporary directory '$temp_dir' (using 3-digit padding)..."
+# --- Step 2: Sanitize and Rename Files (Inside Temp) ---
+echo "Step 2: Sanitizing and Renaming '$RENAME_PATTERN' files inside temporary directory '$temp_dir'..."
 counter=$start_num
 rename_ops=0
 skip_pattern=0
+skip_empty_count=0 # Added counter
 skip_exists=0
+skip_nochange_count=0 # Added counter
 
+# Target the find command at the *temporary* directory
 find "$temp_dir" -maxdepth 1 -name "$RENAME_PATTERN" -print0 | sort -zV | while IFS= read -r -d $'\0' old_filepath; do
     old_filename=$(basename "$old_filepath")
 
-    # Use regex that captures the text part BEFORE the .aiff extension
+    # Try to match the expected pattern (Number Text.Extension)
     if [[ "$old_filename" =~ $REGEX_CAPTURE_TEXT_PART ]]; then
-        text_part="${BASH_REMATCH[1]}" # The captured text part
+        original_text_part="${BASH_REMATCH[1]}" # The captured text part
 
+        # --- Apply Sanitization Logic ---
+        # 1. Replace spaces with hyphens
+        temp_stem1=$(echo "$original_text_part" | tr ' ' '-')
+        # 2. Remove all characters that are NOT alphanumeric or hyphen
+        temp_stem2=$(echo "$temp_stem1" | tr -cd '[:alnum:]-')
+        # 3. Squeeze (collapse) multiple consecutive hyphens into a single hyphen
+        temp_stem3=$(echo "$temp_stem2" | tr -s '-')
+        # 4. Trim leading and trailing hyphens (if any)
+        sanitized_text_part=$(echo "$temp_stem3" | sed -e 's/^-//' -e 's/-$//')
+        # --- End Sanitization ---
+
+        # Skip if sanitizing resulted in an empty text part
+        if [[ -z "$sanitized_text_part" ]]; then
+            echo "Skipping rename for '$old_filename': Sanitized text part is empty."
+            skip_empty_count=$((skip_empty_count + 1))
+            continue # Don't increment counter
+        fi
+
+        # Format the leading number
         new_number_formatted=$(printf "%03d" $counter)
 
-        # --- FIX: Reconstruct filename adding the extension back ---
-        new_filename="${new_number_formatted}${NEW_DELIMITER}${text_part}${EXPECTED_EXTENSION}"
-        # --- END FIX ---
-
+        # Construct the new filename using number, delimiter, sanitized text, and extension
+        new_filename="${new_number_formatted}${NEW_DELIMITER}${sanitized_text_part}${EXPECTED_EXTENSION}"
         new_filepath="$(dirname "$old_filepath")/$new_filename"
 
+        # Skip if filename hasn't changed after sanitizing and renumbering
         if [[ "$old_filename" == "$new_filename" ]]; then
-            echo "Skipping rename (name already correct): $old_filename"
+            echo "Skipping rename (name already correct/no changes needed): $old_filename"
+            skip_nochange_count=$((skip_nochange_count + 1))
+            # Even if no change, it holds a place in the sequence if pattern matched
             counter=$((counter + 1))
             continue
         fi
 
+        # Safety Check: Does a file with the new name already exist in temp?
+        if [[ -e "$new_filepath" ]] && [[ "$old_filepath" != "$new_filepath" ]]; then
+             echo "ERROR: Target temporary file '$new_filename' already exists! Skipping rename for '$old_filename'."
+             skip_exists=$((skip_exists + 1))
+             # Consume the sequence number because this file *would* have used it
+             counter=$((counter + 1))
+             continue
+        fi
+
+        # --- Perform Rename or Dry Run ---
         if $dry_run; then
             echo "DRY RUN: Would rename (in temp): '$old_filename'  ->  '$new_filename'"
             rename_ops=$((rename_ops + 1))
+            counter=$((counter + 1)) # Increment counter for successful simulation
         else
-            if [[ -e "$new_filepath" ]]; then
-                 echo "ERROR: Target temporary file '$new_filename' already exists! Skipping rename for '$old_filename'."
-                 skip_exists=$((skip_exists + 1))
-                 counter=$((counter + 1))
-                 continue
+            echo "Renaming (in temp): '$old_filename'  ->  '$new_filename'"
+            mv -- "$old_filepath" "$new_filepath"
+            if [[ $? -ne 0 ]]; then
+                echo "ERROR: Failed to rename '$old_filename' in temp directory. Stopping script."
+                exit 1 # Exit if rename fails
             else
-                echo "Renaming (in temp): '$old_filename'  ->  '$new_filename'"
-                mv -- "$old_filepath" "$new_filepath"
-                if [[ $? -ne 0 ]]; then echo "ERROR: Failed to rename '$old_filename' in temp directory. Stopping script."; exit 1; fi
                 rename_ops=$((rename_ops + 1))
+                counter=$((counter + 1)) # Increment counter for successful rename
             fi
         fi
-        counter=$((counter + 1))
     else
+        # Filename did not match the Number Text.Extension pattern
         echo "Skipping rename (pattern not matched): $old_filename"
         skip_pattern=$((skip_pattern + 1))
+        # Do not increment counter for pattern mismatch
     fi
 done
 
-echo "Renaming process within temp directory finished."
+echo "Sanitize/Rename process within temp directory finished."
 echo "Rename Summary:"
 if $dry_run; then echo "  Rename operations simulated: $rename_ops"; else echo "  Files renamed in temp: $rename_ops"; fi
 echo "  Files skipped (pattern mismatch): $skip_pattern"
+echo "  Files skipped (sanitized name empty): $skip_empty_count"
+echo "  Files skipped (no change needed): $skip_nochange_count"
 echo "  Files skipped (target name existed in temp): $skip_exists"
 echo "-------------------------------------"
 
 # --- Step 3: Move Files (Temp -> Final Destination) ---
+# ... (move step remains the same) ...
 echo "Step 3: Moving files from temporary directory '$temp_dir' to final destination '$expanded_dest_dir'..."
 rsync_cmd_move=(rsync -ah --remove-source-files)
 if $dry_run; then rsync_cmd_move+=(-n --stats); echo "DRY RUN: Simulating move from temp to final destination..."; fi
@@ -168,4 +201,4 @@ echo "-------------------------------------"
 # --- Final Cleanup ---
 echo "Process finished."
 if $dry_run; then echo "*** DRY RUN MODE was enabled - No actual changes were made to final destination or source. Temp dir was created and will be removed. ***"; fi
-exit 0 # Exit normally, cleanup happens via trap
+exit 0 # Cleanup is handled by the trap
