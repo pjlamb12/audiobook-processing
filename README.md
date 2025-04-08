@@ -305,6 +305,74 @@ Run this script _while inside_ the directory containing the files you want to sa
 
 ---
 
+## `update-m4b-metadata.sh`
+
+_(Update M4B Metadata using atomicparsley)_
+
+### Purpose
+
+Updates specific metadata tags (like title, author, series, cover art, etc.) in an existing `.m4b` audiobook file. It uses the command-line tool `atomicparsley` and modifies the file **in-place**. Only the fields for which you provide flags are updated; unspecified fields are left unchanged.
+
+### Dependencies
+
+-   **`atomicparsley`**: This command-line tool must be installed. On macOS, you can usually install it via Homebrew:
+    ```bash
+    brew install atomicparsley
+    ```
+
+### Workflow
+
+1.  Parses command-line arguments to identify the input file and the metadata fields to update.
+2.  Checks that the input file exists and `atomicparsley` is installed.
+3.  Builds an `atomicparsley` command dynamically, adding flags only for the metadata fields provided by the user.
+    -   `-t` maps to `--title`
+    -   `-a` maps to `--artist`
+    -   `-A` maps to `--album`
+    -   `-S` maps to `--TVShowName` (for Series)
+    -   `-E` maps to `--TVEpisodeNum` (for Sequence Number)
+    -   `-c` maps to `--artwork`
+    -   `-g` maps to `--genre`
+    -   `-d` maps to `--description`
+    -   `-Y` maps to `--year`
+4.  Adds the `--overWrite` flag to the `atomicparsley` command (unless in dry run mode) to modify the original file directly.
+5.  Executes the command (or prints it if in dry run mode).
+
+### Key Assumptions/Warnings
+
+-   **Modifies File In-Place:** The `--overWrite` flag means the original file is changed directly. **Make sure you have backups if the original metadata is important!**
+-   **Dependency:** Requires `atomicparsley` to be installed and accessible in your PATH.
+
+### Usage
+
+```bash
+./update-m4b-metadata.sh -f <input.m4b> [OPTIONS]
+```
+
+-   `-f <input.m4b>`: Path to the M4B file to update (required, `~` expansion supported).
+-   `-t <title>`: Set new Title.
+-   `-a <author>`: Set new Author (Artist tag).
+-   `-A <album>`: Set new Album (often same as Title for audiobooks).
+-   `-S <series_name>`: Set new Series Name (TV Show Name tag).
+-   `-E <sequence_num>`: Set new Sequence number in series (TV Episode Number tag). Must be an integer.
+-   `-c <cover_art>`: Set new Cover Art from image file (jpg/png, `~` expansion supported).
+-   `-g <genre>`: Set new Genre (e.g., Audiobook, Fiction).
+-   `-d <description>`: Set new Description/Synopsis.
+-   `-Y <year>`: Set new Release Year.
+-   `-N`: Optional Dry run flag. Shows the `atomicparsley` command that would be executed (without `--overWrite`) instead of running it. Useful for checking arguments.
+-   `-h`: Show help message.
+
+**Example:**
+
+```bash
+# Update title and author, dry run first
+./update-m4b-metadata.sh -f "~/Audiobooks/My Book.m4b" -t "A Better Title" -a "New Author" -N
+
+# If dry run looks okay, run for real
+./update-m4b-metadata.sh -f "~/Audiobooks/My Book.m4b" -t "A Better Title" -a "New Author"
+```
+
+---
+
 ## Tips
 
 -   Sometimes, when you first insert an audio CD on macOS, the mounted volume name might be generic (like "Audio CD" or "Disc Drive"). It's been observed that **opening the macOS Music app** after inserting the disc can trigger the system to recognize the actual disc title (e.g., "My Audiobook Title") as the volume name. The Music app may also fetch track names from an online database (like Gracenote). Waiting for this to happen before running `copy-rename-cd.sh` can be helpful, as it gives you the correct volume name to use for the `-s` argument and provides the actual track names as a reference in case the automatic renaming based on numbers needs adjustment later.
