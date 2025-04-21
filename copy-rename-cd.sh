@@ -85,7 +85,7 @@ echo "-------------------------------------"
 # --- Step 1: Copy Files (Source -> Temp) ---
 # ... (copy step remains the same) ...
 echo "Step 1: Copying files from '$source_dir' to temporary directory '$temp_dir'..."
-rsync_cmd_copy=(rsync -avh --progress)
+rsync_cmd_copy=(rsync -rtvh --progress)
 if $dry_run; then rsync_cmd_copy+=(-n); echo "DRY RUN: Simulating file copy to temp directory..."; fi
 rsync_cmd_copy+=("$source_dir/" "$temp_dir/")
 "${rsync_cmd_copy[@]}"
