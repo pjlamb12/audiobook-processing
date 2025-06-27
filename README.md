@@ -210,6 +210,12 @@ Combines a sequence of sorted **MP3** files from an input directory into a singl
 
 ---
 
+## `create-m4b-from-aif.sh`
+
+### Purpose
+
+## This script works the same as `create-m4b.sh`, but is necessary when the files are `.aif` instead of `.aiff`. See above for usage.
+
 ## `create-m4b-from-mp3.sh`
 
 _(MP3 to M4B Audiobook Creation)_
@@ -370,6 +376,80 @@ Updates specific metadata tags (like title, author, series, cover art, etc.) in 
 # If dry run looks okay, run for real
 ./update-m4b-metadata.sh -f "~/Audiobooks/My Book.m4b" -t "A Better Title" -a "New Author"
 ```
+
+---
+
+## `show-m4b-metadata.sh`
+
+### Purpose
+
+A simple utility script to read and display common metadata tags from an existing `.m4b` file in a clean, human-readable format.
+
+### Dependencies
+
+-   **`ffprobe`**: This command-line tool must be installed. It is included with the `ffmpeg` suite, which you can install on macOS via Homebrew: `brew install ffmpeg`.
+
+### Workflow
+
+1.  **Validates Input**: Checks that a valid file path is provided as an argument.
+2.  **Runs ffprobe**: Executes `ffprobe` on the specified file to dump all format and metadata information.
+3.  **Parses and Prints**: Filters the `ffprobe` output to find and display key audiobook tags like Title, Author, Series, Sequence Number, Genre, and more. If a tag is not present in the file, it is simply omitted from the output.
+
+### Usage
+
+```bash
+./show-m4b-metadata.sh <path_to_m4b_file>
+```
+
+-   `<path_to_m4b_file>`: The full or relative path to the M4B file you want to inspect.
+
+#### Example Output:
+
+```
+Reading Metadata for: /Audiobooks/Fablehaven/Secrets of the Dragon Sanctuary.m4b
+--------------------------------------------------
+Title          : Secrets of the Dragon Sanctuary
+Author/Artist  : Brandon Mull
+Album          : Secrets of the Dragon Sanctuary
+Series         : Fablehaven
+Sequence #     : 4
+Track #        : 4
+Genre          : Audiobook
+--------------------------------------------------
+```
+
+---
+
+## `split-m4b-by-cue.sh`
+
+### Purpose
+
+This script splits a single, large M4B audiobook file into multiple, smaller M4B files, with one for each "book" contained within. This process relies on a `.cue` sheet that provides the chapter timings for the entire omnibus file.
+
+### Dependencies
+
+-   **`ffmpeg`** and **`ffprobe`**: Must be installed.
+
+### Workflow
+
+1.  **Validates Directory**: Ensures the specified directory contains exactly one `.m4b` file and one `.cue` file with a matching base name.
+2.  **Parses CUE Sheet**: Reads the source `.cue` file to build a complete list of all chapter titles and their absolute start times.
+3.  **Determines Book Boundaries**: Uses the user-provided list of starting track numbers to calculate the absolute start and end time for each book segment within the original M4B file.
+4.  **Loops Through Books**: For each book segment identified:
+    -   Generates a new, sanitized filename based on the title of that book's first chapter.
+    -   Creates a new `.cue` file and a new `ffmpeg` metadata file with chapter timestamps recalculated to be _relative_ to the start of the new, smaller book.
+    -   Executes `ffmpeg` to **stream copy** the correct audio segment from the large M4B file. This is very fast and avoids re-encoding.
+    -   Injects the new, relative chapter metadata into the newly created M4B file.
+    -   The final output is a separate, fully chaptered M4B file (and its corresponding CUE sheet) for each book in the original file.
+
+### Usage
+
+```bash
+./split-m4b-by-cue.sh <directory> <start_tracks>
+```
+
+-   `<directory>`: The path to the directory that holds the single `.m4b` and its matching `.cue` file.
+-   `<start_tracks>`: A comma-separated string of the track numbers that mark the beginning of each new book. For example, if Book 1 starts at Track 1, Book 2 starts at Track 42, and Book 3 starts at Track 84, you would provide `'1,42,84'`.
 
 ---
 
